@@ -57,9 +57,9 @@ class CampfireAPI:
         endpoint = 'account/{id}'.format(id=id_or_name)
         return self._get_response(endpoint)
 
-    def get_account_posts(self, id_or_name: Union[int, str], offset: int = 0) -> dict:
+    def get_account_posts(self, account_id: int, offset: int = 0) -> dict:
         """Returns the user's posts. Use the offset to get the earliest posts."""
-        endpoint = 'account/{id}/publications?offset={offset}'.format(id=id_or_name, offset=offset)
+        endpoint = 'account/{id}/publications?offset={offset}'.format(id=account_id, offset=offset)
         return self._get_response(endpoint)
 
     def get_activity_info(self, activity_id: int) -> dict:
