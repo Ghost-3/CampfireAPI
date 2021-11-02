@@ -3,3 +3,4 @@ venv
 build
 Campfire_API.egg-info
 dist
+setup.py
