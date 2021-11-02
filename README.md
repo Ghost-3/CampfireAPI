@@ -1,6 +1,6 @@
 # General
 
-CampfireAPI based on [Capfire web](https://github.com/timas130/campfire-web).
+CampfireAPI based on [Campfire web](https://github.com/timas130/campfire-web).
 
 ## Install
 
