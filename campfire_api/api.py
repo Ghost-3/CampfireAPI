@@ -3,6 +3,8 @@ from typing import Union, Literal, Any
 import warnings
 from json import JSONDecodeError
 
+from .errors import *
+
 
 class CampfireAPI:
     """
@@ -27,20 +29,25 @@ class CampfireAPI:
     @staticmethod
     def _error_handler(resp: Response) -> dict:
         """Returns dictionary if request is successful, else raise ValueError."""
+        server_errors = {
+            'ERROR_UNAUTHORIZED': UnauthorizedError,
+            'ERROR_ACCOUNT_IS_BANED': AccountIsBannedError,
+            'E_ALREADY_EXIST': EAlreadyExist,
+            'ERROR_GONE': GoneError
+        }
         try:
             resp_json = resp.json()
         except JSONDecodeError:
+            if resp.status_code == 404:
+                raise NotFoundError()
             warnings.warn('Something wrong')
             return {'status_code': resp.status_code, 'content': resp.text}
 
         if resp.status_code != 200:
             if 'response' in resp_json:
-                error_template = '{code}: {message}'
-                error = error_template.format(code=resp_json['response']['code'],
-                                              message=resp_json['response']['messageError'])
+                raise server_errors[resp_json['response']['code']](resp_json['response']['messageError'])
             else:
-                error = 'Unknown error.'
-            raise ValueError(error)
+                raise UnknownError()
         return resp_json
 
     def _get_img(self, endpoint: str) -> bytes:
@@ -49,7 +56,7 @@ class CampfireAPI:
         resp = get(url, *self._args, **self._kwargs)
 
         if resp.status_code != 200:
-            raise ValueError('Image not available.')
+            raise NotFoundError('Image not available.')
         return resp.content
 
     def get_account_info(self, id_or_name: Union[int, str]) -> dict:
