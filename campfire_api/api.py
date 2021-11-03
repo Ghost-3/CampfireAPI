@@ -30,17 +30,17 @@ class CampfireAPI:
         try:
             resp_json = resp.json()
         except JSONDecodeError:
-            print('[Warn]:', resp.content)
             warnings.warn('Something wrong')
-            return {'status_code': resp.status_code}
+            return {'status_code': resp.status_code, 'content': resp.text}
+
         if resp.status_code != 200:
-            try:
+            if 'response' in resp_json:
                 error_template = '{code}: {message}'
                 error = error_template.format(code=resp_json['response']['code'],
                                               message=resp_json['response']['messageError'])
-            except KeyError:
+            else:
                 error = 'Unknown error.'
-            raise Exception(error)
+            raise ValueError(error)
         return resp_json
 
     def _get_img(self, endpoint: str) -> bytes:
@@ -155,30 +155,35 @@ class LoginCampfireAPI(CampfireAPI):
     Use this class to log in to the account.
     """
 
-    def __init__(self, login: str, password: str, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, email: str, password: str, *args: Any, **kwargs: Any) -> None:
         """Logging in to the account on init."""
         super().__init__(*args, **kwargs)
         self._session = Session()
-        payload = {'email': login, 'password': password}
-        self._session.post('https://camp.33rd.dev/api/auth/login', data=payload)
+        self.user = self.login(email, password)
 
-    def _get_response(self, endpoint: str, **data) -> dict:
+    def login(self, email: str, password: str) -> dict:
+        endpoint = 'auth/login'
+        payload = {'email': email, 'password': password, 'redir': False}
+        self.user = self._post_request(endpoint, **payload)
+        return self.user
+
+    def _get_response(self, endpoint: str, **data: Any) -> dict:
         url = self._BASE_URL + endpoint
         resp = self._session.get(url, *self._args, **self._kwargs, data=data)
         return self._error_handler(resp)
 
-    def _post_request(self, endpoint: str, **data) -> dict:
+    def _post_request(self, endpoint: str, **data: Any) -> dict:
         """Accesses the API via the specified path and returns a response."""
         url = self._BASE_URL + endpoint
         resp = self._session.post(url, *self._args, **self._kwargs, data=data)
         return self._error_handler(resp)
 
-    def get_my_profile(self):
+    def get_my_profile(self) -> dict:
         """Returns information about your account."""
         endpoint = 'user'
         return self._get_response(endpoint)
 
-    def get_my_quest(self):
+    def get_my_quest(self) -> dict:
         """Returns your daily quest."""
         endpoint = 'user/quest'
         return self._get_response(endpoint)
@@ -206,7 +211,8 @@ class LoginCampfireAPI(CampfireAPI):
         endpoint = 'activity/{id}/reject'.format(id=activity_id)
         return self._get_response(endpoint)
 
-    def sub_fandom(self, fandom_id: int, sub_type: Literal[0, 1, -1], notif_important: bool = True) -> dict:
+    def sub_fandom(self, fandom_id: int, sub_type: Literal['all', 'nothing', 'important'] = 'all',
+                   notif_important: bool = True) -> dict:
         """
         Subscribes to fandom.
         Type - Type of subscription. One of:
@@ -219,6 +225,15 @@ class LoginCampfireAPI(CampfireAPI):
         \nFalse to not notify about important posts.
         \nThe default is true, but only if type != 1.
         """
+        sub_types = {
+            'all': 0,
+            'nothing': 1,
+            'important': -1
+        }
+        try:
+            sub_type = sub_types[str(sub_type).lower()]
+        except KeyError:
+            raise KeyError('Invalid subscription type.')
         endpoint = 'fandom/{id}/sub?type={type}&important={important}'.format(id=fandom_id, type=sub_type,
                                                                               important=notif_important)
         return self._get_response(endpoint)
