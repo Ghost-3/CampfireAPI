@@ -20,3 +20,7 @@ class UnknownError(Exception):
 
 class NotFoundError(Exception):
     pass
+
+
+class EBadPageIndex(Exception):
+    pass
