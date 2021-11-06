@@ -4,6 +4,8 @@ import warnings
 from json import JSONDecodeError
 
 from .errors import *
+from .post_elements import Element
+from .tools import file_to_base64
 
 
 class CampfireAPI:
@@ -33,7 +35,8 @@ class CampfireAPI:
             'ERROR_UNAUTHORIZED': UnauthorizedError,
             'ERROR_ACCOUNT_IS_BANED': AccountIsBannedError,
             'E_ALREADY_EXIST': EAlreadyExist,
-            'ERROR_GONE': GoneError
+            'ERROR_GONE': GoneError,
+            'E_BAD_PAGE_INDEX': EBadPageIndex
         }
         try:
             resp_json = resp.json()
@@ -47,6 +50,7 @@ class CampfireAPI:
             if 'response' in resp_json:
                 raise server_errors[resp_json['response']['code']](resp_json['response']['messageError'])
             else:
+                print(resp_json)
                 raise UnknownError()
         return resp_json
 
@@ -96,7 +100,7 @@ class CampfireAPI:
             warnings.warn('The randomize parameter must be of the bool type')
         return self._get_response(endpoint)
 
-    def get_image(self, img_id) -> bytes:
+    def get_image(self, img_id: int) -> bytes:
         """Returns the image by ID."""
         endpoint = 'image/{id}'.format(id=img_id)
         return self._get_img(endpoint)
@@ -169,20 +173,22 @@ class LoginCampfireAPI(CampfireAPI):
         self.user = self.login(email, password)
 
     def login(self, email: str, password: str) -> dict:
+        """Logging in to the account."""
         endpoint = 'auth/login'
         payload = {'email': email, 'password': password, 'redir': False}
         self.user = self._post_request(endpoint, **payload)
         return self.user
 
-    def _get_response(self, endpoint: str, **data: Any) -> dict:
+    def _get_response(self, endpoint: str) -> dict:
+        """Accesses the API via the specified path and returns a response."""
         url = self._BASE_URL + endpoint
-        resp = self._session.get(url, *self._args, **self._kwargs, data=data)
+        resp = self._session.get(url, *self._args, **self._kwargs)
         return self._error_handler(resp)
 
     def _post_request(self, endpoint: str, **data: Any) -> dict:
-        """Accesses the API via the specified path and returns a response."""
+        """Accesses the API via the specified path & data and returns a response."""
         url = self._BASE_URL + endpoint
-        resp = self._session.post(url, *self._args, **self._kwargs, data=data)
+        resp = self._session.post(url, *self._args, **self._kwargs, json=data)
         return self._error_handler(resp)
 
     def get_my_profile(self) -> dict:
@@ -243,4 +249,75 @@ class LoginCampfireAPI(CampfireAPI):
             raise KeyError('Invalid subscription type.')
         endpoint = 'fandom/{id}/sub?type={type}&important={important}'.format(id=fandom_id, type=sub_type,
                                                                               important=notif_important)
+        return self._get_response(endpoint)
+
+    def get_my_drafts(self, offset: int = 0) -> dict:
+        """Returns a list of drafts."""
+        endpoint = 'drafts?offset={offset}'.format(offset=offset)
+        return self._get_response(endpoint)
+
+    def get_draft_content(self, draft_id: int) -> dict:
+        """Returns the content of the draft."""
+        endpoint = 'drafts/{id}'.format(id=draft_id)
+        return self._get_response(endpoint)
+
+    def create_draft(self, fandom_id: int, lang_id: int = 2, *elements: Element) -> dict:
+        """Creates a draft with the specified elements."""
+        endpoint = 'drafts/0/page?action=put'
+        data = {
+            "fandomId": int(fandom_id),
+            "languageId": int(lang_id),
+            "pages": list(map(dict, elements))
+        }
+        return self._post_request(endpoint, **data)
+
+    def add_draft_elements(self, draft_id: int, *elements: Element) -> dict:
+        """Adds an elements to the draft."""
+        endpoint = 'drafts/{id}/page?action=put'.format(id=draft_id)
+        draft = self.get_draft_content(draft_id)
+        data = {
+            "fandomId": int(draft['fandomId']),
+            "languageId": int(draft['languageId']),
+            "pages": list(map(dict, elements))
+        }
+        return self._post_request(endpoint, **data)
+
+    def move_draft_element(self, draft_id: int, element_index: int, target_index: int) -> dict:
+        """Moves the specified element in the draft."""
+        endpoint = 'drafts/{id}/page?action=move'.format(id=draft_id)
+        data = {"pageIndex": int(element_index), "targetIndex": int(target_index)}
+        return self._post_request(endpoint, **data)
+
+    def change_draft_element(self, draft_id: int, element_index: int, element: Element) -> dict:
+        """Changes the specified element in the draft."""
+        endpoint = 'drafts/{id}/page?action=change'.format(id=draft_id)
+        data = {"pageIndex": int(element_index), "page": dict(element)}
+        return self._post_request(endpoint, **data)
+
+    def remove_draft_elements(self, draft_id: int, *element_indexes: int) -> dict:
+        """Removes the specified element in the draft."""
+        endpoint = 'drafts/{id}/page?action=remove'.format(id=draft_id)
+        data = {"pageIndexes": list(map(int, element_indexes))}
+        return self._post_request(endpoint, **data)
+
+    def add_draft_image(self, draft_id: int, img_element: Element, image1: str, image2: str = None) -> dict:
+        """Use this method to create elements with an image."""
+        endpoint = 'drafts/{id}/page?action=put'.format(id=draft_id)
+        draft = self.get_draft_content(draft_id)
+        img1 = file_to_base64(image1).decode('utf-8')
+        if isinstance(image2, str):
+            img2 = file_to_base64(image2).decode('utf-8')
+        else:
+            img2 = None
+        data = {
+            "fandomId": int(draft['fandomId']),
+            "languageId": int(draft['languageId']),
+            "pages": [dict(img_element)],
+            "dataOutput": [img1, img2]
+        }
+        return self._post_request(endpoint, **data)
+
+    def pub_post(self, draft_id: int) -> dict:
+        """Publishes a post in the fandom."""
+        endpoint = 'drafts/{id}/publish'.format(id=draft_id)
         return self._get_response(endpoint)
