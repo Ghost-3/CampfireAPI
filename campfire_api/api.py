@@ -1,11 +1,10 @@
-from requests import get, Session, Response
+from requests import get, post, Session, Response
 from typing import Union, Literal, Any
 import warnings
 from json import JSONDecodeError
 
 from .errors import *
 from .post_elements import Element
-from .tools import file_to_base64
 
 
 class CampfireAPI:
@@ -158,6 +157,11 @@ class CampfireAPI:
         endpoint = 'fandom/wiki/{id}'.format(id=article_id)
         return self._get_response(endpoint)
 
+    def custom(self, **data):
+        url = self._BASE_URL + 'custom'
+        resp = post(url, json=data)
+        return self._error_handler(resp)
+
 
 class LoginCampfireAPI(CampfireAPI):
     """
@@ -190,6 +194,9 @@ class LoginCampfireAPI(CampfireAPI):
         url = self._BASE_URL + endpoint
         resp = self._session.post(url, *self._args, **self._kwargs, json=data)
         return self._error_handler(resp)
+
+    def custom(self, **data):
+        return self._post_request('custom', **data)
 
     def get_my_profile(self) -> dict:
         """Returns information about your account."""
@@ -228,10 +235,7 @@ class LoginCampfireAPI(CampfireAPI):
                    notif_important: bool = True) -> dict:
         """
         Subscribes to fandom.
-        Type - Type of subscription. One of:
-        \n1: No subscription.
-        \n0: Everything.
-        \n1: Important only.
+        Type - Type of subscription.
 
         important -
         \nTrue to notify about important posts,
@@ -269,6 +273,9 @@ class LoginCampfireAPI(CampfireAPI):
             "languageId": int(lang_id),
             "pages": list(map(dict, elements))
         }
+        for item in elements:
+            if item.has_image:
+                data.update(item.images)
         return self._post_request(endpoint, **data)
 
     def add_draft_elements(self, draft_id: int, *elements: Element) -> dict:
@@ -280,6 +287,9 @@ class LoginCampfireAPI(CampfireAPI):
             "languageId": int(draft['languageId']),
             "pages": list(map(dict, elements))
         }
+        for item in elements:
+            if item.has_image:
+                data.update(item.images)
         return self._post_request(endpoint, **data)
 
     def move_draft_element(self, draft_id: int, element_index: int, target_index: int) -> dict:
@@ -292,29 +302,14 @@ class LoginCampfireAPI(CampfireAPI):
         """Changes the specified element in the draft."""
         endpoint = 'drafts/{id}/page?action=change'.format(id=draft_id)
         data = {"pageIndex": int(element_index), "page": dict(element)}
+        if element.has_image:
+            data.update(element.images)
         return self._post_request(endpoint, **data)
 
     def remove_draft_elements(self, draft_id: int, *element_indexes: int) -> dict:
         """Removes the specified element in the draft."""
         endpoint = 'drafts/{id}/page?action=remove'.format(id=draft_id)
         data = {"pageIndexes": list(map(int, element_indexes))}
-        return self._post_request(endpoint, **data)
-
-    def add_draft_image(self, draft_id: int, img_element: Element, image1: str, image2: str = None) -> dict:
-        """Use this method to create elements with an image."""
-        endpoint = 'drafts/{id}/page?action=put'.format(id=draft_id)
-        draft = self.get_draft_content(draft_id)
-        img1 = file_to_base64(image1).decode('utf-8')
-        if isinstance(image2, str):
-            img2 = file_to_base64(image2).decode('utf-8')
-        else:
-            img2 = None
-        data = {
-            "fandomId": int(draft['fandomId']),
-            "languageId": int(draft['languageId']),
-            "pages": [dict(img_element)],
-            "dataOutput": [img1, img2]
-        }
         return self._post_request(endpoint, **data)
 
     def pub_post(self, draft_id: int) -> dict:
