@@ -21,16 +21,16 @@ def datetime_to_timestamp(date_time: datetime) -> int:
     return int(mktime(date_time.timetuple()) * 1000)
 
 
-def file_to_base64(path: str) -> bytes:
+def file_to_base64(path: str) -> str:
     """Opens the file and encodes it in base64."""
     with open(path, 'rb') as file:
         raw_bytes = file.read()
-        return b64encode(raw_bytes)
+        return b64encode(raw_bytes).decode('utf-8')
 
 
-def bytes_to_base64(raw_bytes: bytes) -> bytes:
+def bytes_to_base64(raw_bytes: bytes) -> str:
     """Encodes the string in base64."""
-    return b64encode(raw_bytes)
+    return b64encode(raw_bytes).decode('utf-8')
 
 
 def get_video_preview(video_id: str) -> bytes:
