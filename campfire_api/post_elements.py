@@ -3,9 +3,11 @@ from typing import Literal, Union
 
 class Element:
     """A base class for all post elements."""
+    has_image = False
 
     def __init__(self):
         self._data = dict()
+        self.images = None
 
     def __iter__(self):
         return self._data.__iter__()
@@ -48,11 +50,15 @@ class Image(Element):
     Element image.
     \nMust be sent with add_draft_image(...)
     """
+    has_image = True
 
-    def __init__(self):
+    def __init__(self, image1: str, image2: str = None):
         super().__init__()
         self._data = {
             "J_PAGE_TYPE": 2
+        }
+        self.images = {
+            "dataOutput": [image1, image2]
         }
 
 
@@ -61,32 +67,15 @@ class ImagesList(Element):
     Element list of images.
     \nNot ready for use.
     """
+    has_image = True
 
-    def __init__(self):
+    def __init__(self, title: str = str()):
         super().__init__()
-        images_ids = list()
         self._data = {
             "J_PAGE_TYPE": 3,
-            "imagesIds": [
-                int(),
-                int()
-            ],
-            "imagesCount": len(images_ids),
             "replacePageIndex": -1,
-            "imagesMiniSizesW": [
-                int(),
-                int()
-            ],
-            "imagesMiniSizesH": [
-                int(),
-                int()
-            ],
-            "title": "",
-            "removePageIndex": -1,
-            "imagesMiniIds": [
-                int(),
-                int()
-            ]
+            "title": str(title),
+            "removePageIndex": -1
         }
         raise NotImplementedError('This element is not ready, do not use it.')
 
@@ -96,12 +85,16 @@ class Video(Element):
     The element video.
     \nMust be sent with add_draft_image(...)
     """
+    has_image = True
 
-    def __init__(self, link: str):
+    def __init__(self, video_id: str, image1: str, image2: str = None):
         super().__init__()
         self._data = {
             "J_PAGE_TYPE": 9,
-            "videoId": str(link)
+            "videoId": str(video_id)
+        }
+        self.images = {
+            "dataOutput": [image1, image2]
         }
 
 
@@ -164,11 +157,14 @@ class LinkImage(Element):
     \nMust be sent with add_draft_image(...)
     """
 
-    def __init__(self, link: str):
+    def __init__(self, link: str, image1: str, image2: str = None):
         super().__init__()
         self._data = {
             "J_PAGE_TYPE": 14,
             "link": str(link)
+        }
+        self.images = {
+            "dataOutput": [image1, image2]
         }
 
 
